@@ -61,6 +61,9 @@ pub enum DenoSubcommand {
     json: bool,
   },
   Repl,
+  RSLint {
+    files: Vec<String>,
+  },
   Run {
     script: String,
   },
@@ -286,6 +289,8 @@ pub fn flags_from_vec_safe(args: Vec<String>) -> clap::Result<Flags> {
     doc_parse(&mut flags, m);
   } else if let Some(m) = matches.subcommand_matches("lint") {
     lint_parse(&mut flags, m);
+  } else if let Some(m) = matches.subcommand_matches("rslint") {
+    rslint(&mut flags, m);
   } else {
     repl_parse(&mut flags, &matches);
   }
@@ -665,6 +670,15 @@ fn lint_parse(flags: &mut Flags, matches: &clap::ArgMatches) {
     ignore,
     json,
   };
+}
+
+fn rslint(flags: &mut Flags, matches: &clap::ArgMatches) {
+  let files = match matches.values_of("files") {
+    Some(f) => f.map(String::from).collect(),
+    None => vec![],
+  };
+
+  flags.subcommand = DenoSubcommand::RSLint { files }
 }
 
 fn types_subcommand<'a, 'b>() -> App<'a, 'b> {

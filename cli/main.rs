@@ -56,6 +56,8 @@ mod tsc_config;
 mod upgrade;
 mod version;
 mod worker;
+// Temporary name
+mod rslint;
 
 use crate::coverage::CoverageCollector;
 use crate::coverage::PrettyCoverageReporter;
@@ -65,6 +67,7 @@ use crate::fs as deno_fs;
 use crate::media_type::MediaType;
 use crate::permissions::Permissions;
 use crate::program_state::ProgramState;
+use crate::rslint::lint_files as run_rslint;
 use crate::worker::MainWorker;
 use deno_core::error::AnyError;
 use deno_core::futures::future::FutureExt;
@@ -751,6 +754,7 @@ pub fn main() {
       json,
     } => lint_command(flags, files, rules, ignore, json).boxed_local(),
     DenoSubcommand::Repl => run_repl(flags).boxed_local(),
+    DenoSubcommand::RSLint { files } => run_rslint(files).boxed_local(),
     DenoSubcommand::Run { script } => run_command(flags, script).boxed_local(),
     DenoSubcommand::Test {
       fail_fast,

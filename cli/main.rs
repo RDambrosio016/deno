@@ -56,8 +56,6 @@ mod tsc_config;
 mod upgrade;
 mod version;
 mod worker;
-// Temporary name
-mod rslint;
 
 use crate::coverage::CoverageCollector;
 use crate::coverage::PrettyCoverageReporter;
@@ -67,7 +65,6 @@ use crate::fs as deno_fs;
 use crate::media_type::MediaType;
 use crate::permissions::Permissions;
 use crate::program_state::ProgramState;
-use crate::rslint::lint_files as run_rslint;
 use crate::worker::MainWorker;
 use deno_core::error::AnyError;
 use deno_core::futures::future::FutureExt;
@@ -79,12 +76,13 @@ use deno_core::v8_set_flags;
 use deno_core::ModuleSpecifier;
 use deno_doc as doc;
 use deno_doc::parser::DocFileLoader;
-use flags::DenoSubcommand;
 use flags::Flags;
+use flags::{DenoSubcommand, RSLintSubcommand};
 use import_map::ImportMap;
 use log::Level;
 use log::LevelFilter;
 use program_state::exit_unstable;
+use rslint_cli::ExplanationRunner;
 use std::cell::RefCell;
 use std::env;
 use std::io::Read;
@@ -648,6 +646,19 @@ async fn test_command(
   Ok(())
 }
 
+fn rslint_command(
+  files: String,
+  fix: bool,
+  dirty: bool,
+  subcommand: Option<RSLintSubcommand>,
+) {
+  if let Some(RSLintSubcommand::Explain { rules }) = subcommand {
+    ExplanationRunner::new(rules).print();
+  } else {
+    rslint_cli::run(files, false, fix, dirty);
+  }
+}
+
 pub fn main() {
   #[cfg(windows)]
   colors::enable_ansi(); // For Windows 10
@@ -754,7 +765,12 @@ pub fn main() {
       json,
     } => lint_command(flags, files, rules, ignore, json).boxed_local(),
     DenoSubcommand::Repl => run_repl(flags).boxed_local(),
-    DenoSubcommand::RSLint { files } => run_rslint(files).boxed_local(),
+    DenoSubcommand::RSLint {
+      files,
+      fix,
+      dirty,
+      subcommand,
+    } => return rslint_command(files, fix, dirty, subcommand),
     DenoSubcommand::Run { script } => run_command(flags, script).boxed_local(),
     DenoSubcommand::Test {
       fail_fast,

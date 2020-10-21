@@ -90,7 +90,6 @@ pub async fn lint_files(
     }
   })
   .await?;
-
   let has_error = has_error.load(Ordering::Relaxed);
 
   reporter_lock.lock().unwrap().close(target_files_len);

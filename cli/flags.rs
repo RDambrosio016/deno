@@ -62,7 +62,10 @@ pub enum DenoSubcommand {
   },
   Repl,
   RSLint {
-    files: Vec<String>,
+    files: String,
+    fix: bool,
+    dirty: bool,
+    subcommand: Option<RSLintSubcommand>,
   },
   Run {
     script: String,
@@ -88,6 +91,11 @@ impl Default for DenoSubcommand {
   fn default() -> DenoSubcommand {
     DenoSubcommand::Repl
   }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum RSLintSubcommand {
+  Explain { rules: Vec<String> },
 }
 
 #[derive(Clone, Debug, PartialEq, Default)]
@@ -348,6 +356,7 @@ If the flag is set, restrict these messages to errors.",
     .subcommand(install_subcommand())
     .subcommand(lint_subcommand())
     .subcommand(repl_subcommand())
+    .subcommand(rslint_subcommand())
     .subcommand(run_subcommand())
     .subcommand(test_subcommand())
     .subcommand(types_subcommand())
@@ -673,12 +682,30 @@ fn lint_parse(flags: &mut Flags, matches: &clap::ArgMatches) {
 }
 
 fn rslint(flags: &mut Flags, matches: &clap::ArgMatches) {
-  let files = match matches.values_of("files") {
-    Some(f) => f.map(String::from).collect(),
-    None => vec![],
+  let files = matches
+    .value_of("files")
+    .map(|x| x.to_string())
+    .unwrap_or_else(|| String::from("./"));
+  let fix = matches.is_present("fix");
+  let dirty = matches.is_present("dirty");
+  let subcommand = if let Some(matches) = matches.subcommand_matches("explain")
+  {
+    Some(RSLintSubcommand::Explain {
+      rules: match matches.values_of("rules") {
+        Some(f) => f.map(String::from).collect(),
+        None => vec![],
+      },
+    })
+  } else {
+    None
   };
 
-  flags.subcommand = DenoSubcommand::RSLint { files }
+  flags.subcommand = DenoSubcommand::RSLint {
+    files,
+    fix,
+    dirty,
+    subcommand,
+  }
 }
 
 fn types_subcommand<'a, 'b>() -> App<'a, 'b> {
@@ -1080,6 +1107,42 @@ Ignore linting a file by adding an ignore comment at the top of the file:
         .takes_value(true)
         .multiple(true)
         .required(false),
+    )
+}
+
+fn rslint_subcommand<'a, 'b>() -> App<'a, 'b> {
+  SubCommand::with_name("rslint")
+    .about("Lint source files")
+    .long_about(
+      "Lint JavaScript source code using RSLint.
+  ",
+    )
+    .arg(
+      Arg::with_name("files")
+        .takes_value(true)
+        .multiple(true)
+        .required(false)
+        .default_value("./"),
+    )
+    .subcommand(
+      SubCommand::with_name("explain").arg(
+        Arg::with_name("rules")
+          .takes_value(true)
+          .multiple(true)
+          .required(true),
+      ).about("Print the docs of rules to the terminal"),
+    )
+    .arg(
+      Arg::with_name("fix")
+        .long("fix")
+        .short("f")
+        .help("Automatically try to fix some issues"),
+    )
+    .arg(
+      Arg::with_name("dirty")
+      .long("dirty")
+      .short("D")
+      .help("Try to automatically fix some issues even if there are syntax errors (may cause weird fixes or more issues)")
     )
 }
 
